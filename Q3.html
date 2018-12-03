@@ -1,0 +1,218 @@
+<html>
+
+  <head>
+    <script type="text/javascript" src="http://d3js.org/d3.v3.min.js">
+    //fieldset styles from http://www.pixy.cz/blogg/clanky/css-fieldsetandlabels.html
+    </script>
+    <style>
+      #my_table{
+        width:30%
+      }
+      table{
+        border-collapse: collapse;
+        width: 100%
+      }
+      #my_table tr:nth-child(even){background-color: #f2f2f2;}
+    	th, td{
+        font-family: Arial;
+       }
+       td{
+         border: .08em solid #ddd;
+         padding: .25em
+       }
+       th{
+         text-align: left;
+         background-color: black;
+         color: white;
+       }
+
+       legend {
+         padding: 0.2em 0.5em;
+         border:1px solid green;
+         color:green;
+         font-size:90%;
+         text-align:right;
+         }
+         label {
+           float:left;
+           margin-right:0.5em;
+           padding-top:0.2em;
+           font-weight:bold;
+           }
+    </style>
+</head>
+<script>
+
+//Based on function I found at http://bl.ocks.org/jfreels/6814721
+
+function tabulate (data,columns,cols) {
+    d3.select("table").remove()
+    var table = d3.select('#my_table').append('table')
+  	var thead = table.append('thead')
+  	var tbody = table.append('tbody')
+
+  	thead.append('tr')
+  	  .selectAll('th')
+  	    .data(columns)
+  	    .enter()
+  	  .append('th')
+  	    .text(function (d) { return d })
+
+  	var rows = tbody.selectAll('tr')
+  	    .data(data)
+  	    .enter()
+  	  .append('tr')
+
+  	var cells = rows.selectAll('td')
+  	    .data(function(row){
+            return (
+              columns.map(function(column){
+                return ({value:row[column]})
+              })
+            )
+
+        })
+        .enter()
+      .append('td')
+        .text(function (d) { return d.value })
+
+    return table;
+  }
+
+  function get_cols(){
+  var select = []
+  var cols = document.getElementsByClassName('cols')
+  for (i = 0; i < cols.length; i++){
+    if(cols[i].checked){
+      select.push(cols[i].value)
+    }
+  }
+  return select.join(',')
+}
+
+
+function get_string(){
+
+  var where_clause = document.getElementById('where_clause').value;
+  var rows = document.getElementById('row_total').value;
+  var select = get_cols()
+  var url = new URL( 'http://localhost:5000/tree_data');
+
+  var params = {
+      'where': where_clause,
+      'limit' : rows,
+      'select' : select
+    }
+
+  Object.keys(params).forEach(function(param) {
+    url.searchParams.set(param, params[param])
+  })
+  return url;
+
+}
+
+
+function load_table(){
+
+  get_cols()
+  var url = get_string()
+  d3.json(url, function (data){
+       var keys =  Object.keys(data[0])
+       var cols = keys.length
+       tabulate(data, keys, cols)
+     })
+}
+
+function filter(){
+
+  var input = document.getElementById('filter_me').value.toUpperCase();
+
+  var rows = d3.select("#my_table")
+    .select("tbody")
+    .selectAll("tr");
+
+  rows[0].map(function (row){
+      var pres = row.getElementsByTagName('td')[0].innerText.toUpperCase();
+
+      if (pres.includes(input) == true){
+        row.style.display = "";
+      }
+      else{
+        row.style.display = "none";
+      }
+  })
+
+}
+
+function unhide() {
+    document.getElementById("where_div").style.display = "block";
+}
+
+function hide_div(){
+   document.getElementByID('where_div').style.display = "none"
+}
+
+
+function do_stuff()
+{
+    var req = new XMLHttpRequest()
+    req.onreadystatechange = function()
+    {
+        if (req.readyState == 4)
+        {
+            if (req.status == 200){
+                var response = JSON.parse(req.responseText)
+                document.getElementById('mean').innerHTML = response.mean
+    document.getElementById('min').innerHTML = response.min
+    document.getElementById('max').innerHTML = response.max
+    document.getElementById('stdev').innerHTML = response.stdev
+            }
+        }
+}
+
+
+    req.open('POST', '/stats')
+    req.setRequestHeader("Content-type", "application/x-www-form-urlencoded")
+    var tick = document.getElementById('ticker').value
+    var postVars = 'ticker='+tick
+    req.send(postVars)
+
+    return false
+}
+
+</script>
+
+<body onload = "hide_div()">
+
+<br>
+
+<fieldset style = "width:30%">
+  <legend>Tree Data Search Criteria</legend>
+  <label>Select Columns:</label>
+  <br>
+  <br>
+  <input type="checkbox" name="col1" value="boroname" class = 'cols'> Boro<br>
+  <input type="checkbox" name="col2" value="spc_common" class = 'cols'> Species<br>
+  <input type="checkbox" name="col3" value="address" class = 'cols'> Address<br>
+  <br>
+  <label>Filter Data?</lable>
+  <br>
+  <input type="radio" id="filter_y" value="filter" onClick = 'unhide()'> Yes<br>
+
+  <div id = "where_div" style = "display:none">
+  <label for="row_input">Enter where clause:</label>
+    <input name = "where" type = "text" id = "where_clause">
+  </div>
+  <br>
+  <label for="row_input"># Of Rows:</label>
+  <input type = "number" name = "row_input" id = "row_total">
+
+  <br>
+  <br>
+  <input type = 'button', value = 'search' onclick="load_table()">
+</fieldset>
+
+<div id = 'my_table'></div>
+
+</body>
+</html>
